@@ -128,22 +128,20 @@ history_object = model.fit_generator(train_generator, samples_per_epoch =
     callbacks=[checkpoint],                                 
     verbose=1)
 
+# Printing the loss across the epochs
+
 # Printing the keys
 print(history_object.history.keys())
-
-# Printing the loss across the epochs
-fig = plt.figure(figsize=(20, 30))
+fig = plt.figure(figsize=(6, 6))
 plt.plot(history_object.history['loss'])
 plt.plot(history_object.history['val_loss'])
 plt.title('model mean squared error loss')
 plt.ylabel('mean squared error loss')
 plt.xlabel('epoch')
-plt.legend(['training set', 'validation set'], loc='upper right')
+plt.legend(['training set', 'validation set'], loc='lewer right')
 plt.show()
 fig.savefig('images/lossplot.jpg')
 plt.close(fig)
-
-
 
 
 
