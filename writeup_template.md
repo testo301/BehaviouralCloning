@@ -118,14 +118,13 @@ Several model architectures were tested on a small data sample covering only key
 3. Architecture proposed by https://comma.ai/ company, building on similar concept to the NVIDIA model. 
 [Self Steering GH](https://github.com/commaai/research/blob/master/SelfSteering.md) related to the paper arxiv.org/abs/1608.01230
 
-
-After checking the articles recommended in the submission of the traffic light project, ELU activation proves to be a better choice than leaky RELU.
+After checking the articles recommended in the submission of the traffic light project, ELU activation proved to be a better choice than RELU or leaky RELU.
 
 1. The first minimalistic approach didn't tackle more complex curves appropriately.
 2. The second choice took a long time to train the first epoch on the small data sample.
 3. The third choice provided a model that trained through the first epoch in a reasonable time and readily provided a model that was able to drive itself (except stepping on a right lane line and then recovering on one of the more complex turns). 
 
-Given tangible results after the first quick training round, the third Comma.AI based model was chosen.
+Given tangible results after the first quick training round, the third Comma.AI-based model was chosen.
 
 The model consists of the convolutional layers with varying filter sizes, ELU activation layers, fully connected layers and the dropout layers with varying probability levels. The data is normalized in the model using a Keras lambda layer
 
@@ -146,7 +145,7 @@ The model contains dropout layers in order to reduce overfitting. The dropout la
 The model was trained on three independently collected datasets:
 - full forward pass through the track
 - full backward pass through the track
-- recovery of the trickier turn
+- recovery of the more difficult turn
 
 The model was tested by running it through the simulator and ensuring that the vehicle could stay on the track.
 
@@ -187,22 +186,21 @@ Therefore I searched for a proven model, the following being the candidates that
 
 The first model was resource hungry in terms of training, therefore I have selected the second one, given reasonable per epoch training time.
 
-After each epoch, the model was saved and I was able to test its performance in the Workspace (unfortunately I didn't manage to run Autonomous model on the offline local simulator).
+After each epoch, the model was saved and I was able to upload it to the Workspace and test its performance in the Simulator (unfortunately I didn't manage to run Autonomous model on the offline local simulator).
 
-Model after the first epoch on the forward training data only was reasonably good. Except one curve where it partly stepped on the right lane and then quickly recovered. I wanted to amend that behaviour and recorded additional recovery of this turn.
+Model after the first epoch on the forward training data only was reasonably good. Except one curve where it partly stepped on the right lane and then progressively recovered. I wanted to amend that behaviour and recorded additional recovery of this turn.
 
-After combining forward/backward/challenging curve data, the model cleared the track without the problem. However my driving was quite bad in the backward run and the model inherited nervous angle corrections while driving, which is illustrated below:
-
-Model after the first epoch is preseted in the video format in this folder under 'temp_1epoch.mp4'
-
-Model after the second epoch is preseted in the video format in this folder under 'temp_2epoch.mp4'
-
-Model after the third epoch is preseted in the video format in this folder under 'temp_3epoch.mp4'
+After combining forward/backward/challenging curve data, the model cleared the track without the problem. However my driving was quite bad in the backward run and the model inherited nervous angle corrections while driving, which is apparent in the video.
 
 Model performance was captured at each epoch and can be illustrated below for the training and validation datasets:
 
 ![alt text][image1]
 
+It is apparent that the validation metric almost doesn't improve after the first epoch, but the training one does substantially, which is a sign of overfitting. 
+
+In the third epoch, the validation metric is actually deteriorating which is another sign of overfitting.
+
+Therefore, the model trained in the first epoch was chosen and it is preseted in the video format in this folder under 'video.mp4' name.
 
 #### 2. Final Model Architecture
 
@@ -244,5 +242,7 @@ The following picture illustrates the view after cropping the center image:
 
 ![alt text][image4]
 
-The total number of frames entering the augmentation process and sampling is 2743.
+The total number of frames entering the augmentation process and sampling is 2743. All of the data was collected by myself in the simulator's training model. No Udacity pre-recorded data was used (just for fun).
+
+I tried to record data on the challenge track, but I couldn't maintain the top speed and I was falling off cliffs:( I assume steering angles would be sensitive to the speed and the autonomous simulator would go full throttle and therefore exhibit large bias in steering, so attempt to record it at 5mph would be futile.
 
