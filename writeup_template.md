@@ -18,13 +18,19 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
-[image1]: ./examples/placeholder.png "Model Visualization"
-[image2]: ./examples/placeholder.png "Grayscaling"
-[image3]: ./examples/placeholder_small.png "Recovery Image"
-[image4]: ./examples/placeholder_small.png "Recovery Image"
-[image5]: ./examples/placeholder_small.png "Recovery Image"
-[image6]: ./examples/placeholder_small.png "Normal Image"
-[image7]: ./examples/placeholder_small.png "Flipped Image"
+[image1]: ./images/lossplot.jpg "Train/Validation loss versus number of epochs"
+
+[image2]: ./images/model_architecture1.jpg "Model Architecture"
+[image3]: ./images/model_architecture2.jpg "Model Architecture"
+
+[image4]: ./images/cropped.jpg "Cropped Image"
+[image5]: ./images/flipped.jpg "Flipped Image"
+[image6]: ./images/leftcenterright.jpg "Left / Right / Center Image"
+[image7]: ./images/steeringhistogram.jpg "Histogram of the steering angles"
+
+
+
+
 
 ## Rubric Points
 ### Here I will consider the [rubric points](https://review.udacity.com/#!/rubrics/432/view) individually and describe how I addressed each point in my implementation.  
@@ -38,7 +44,7 @@ My project includes the following files:
 * model.py containing the script to create and train the model
 * drive.py for driving the car in autonomous mode
 * model.h5 containing a trained convolution neural network 
-* writeup_report.md or writeup_report.pdf summarizing the results
+* writeup_template.md and writeup_template.pdf summarizing the results
 
 #### 2. Submission includes functional code
 Using the Udacity provided simulator and my drive.py file, the car can be driven autonomously around the track by executing 
@@ -48,82 +54,195 @@ python drive.py model.h5
 
 #### 3. Submission code is usable and readable
 
-The model.py file contains the code for training and saving the convolution neural network. The file shows the pipeline I used for training and validating the model, and it contains comments to explain how the code works.
+The model.py file contains the code for training and saving the convolution neural network. 
+
+The code contains three sections:
+1. Definition of the generator function generator() taking as an argument the sample, along with the size of the batch
+2. Importing samples from the .csv files
+3. Defining architecture of the network with Keras
+4. Compiling the model, definig checkpoints and executing the training
+
 
 ### Model Architecture and Training Strategy
 
+#### 0. Approach strategy
+
+Given large complexity of the problem in terms of number of parameters, it was impossible to isolate the factors and ensure proper experimentation is done to optimize all aspects of the project, that is:
+- input image choice (key turns only, all track, multiple takes of the track, backwards track, recoveries, etc.)
+- vehicle speed versus steering angle effects
+- input image size and cropping area
+- color palette transformation
+- random shadowing
+- image flipping
+- correction of the steering angle for the left/right images
+- smoothing of the steering angles
+- addressing assymetries of the steering angle distribution
+- batch size
+- number of epochs
+- network depths
+- network layer structure
+- size of the convolution filters
+- stack of the filters
+- dropout layers
+- pooling layers
+- activation functions
+- size of the fully connected layers
+- method of convergence
+- stopping criteria
+- optimizer
+
+Given limited timeframe, quick experiments were performed to choose:
+- data collection - the simulator was downloaded locally, given bad performance of the simulator in the workspace, and the whole data collection exercise was performed locally for:
+    - small recordings of only the key turns
+    - full forward pass of the track
+    - full backward pass of the track
+    - additional pass and recovery recording of the challenging turn (where the simulator had tendency to approach the right lane)
+- vehicle speed versus steering angles - I assumed vehicle drives full throttle, I didn't differentiate recordings in terms of vehicle speed and the impact of the steering angle for simplicity
+- smoothing of the steering angle - I did not apply any smoothing to the steering angles. However I observed a direct impact of me driving more smoothly around easier curves and jerky movements around tighter turns on the behaviour of the network. The network inherited smoother way of driving from my forward pass, along with the jerky corrections in the backward pass. All forward/backward/curves training data available on demand since learning was performed locally on my machine.
+- batch size - 32 proved to be a good choice, larger values increased severalfold the per epoch training time
+- number of epochs - loss value was observed during the training and the full models were saved at the end of each epochs
+- data augmentation - flipping of only the center image was applied. Expert correction of +/-0.25 was added as a scalar to the steering angles for the left/right images. 0.30 works fine as well. It can be derived. No other augmentation was applied given long training times for data.
+- addressing assymetries of the steering angle distribution - image flipping helped to address assymetries. However it didn't focus on smoothing the distribution.
+- no image distortion correction was applied.
+- network architecture testing proved to be most challenging, minimalistic network didn't work on small data samples, therefore a proven networks were chosen NVIDIA's and Comma.AI's.
+- optimization - Adam was chosen, with the MSE criteria. The loss value was observed during the pass over the respective epochs.
+
 #### 1. An appropriate model architecture has been employed
 
-My model consists of a convolution neural network with 3x3 filter sizes and depths between 32 and 128 (model.py lines 18-24) 
+Several model architectures were tested on a small data sample covering only key turns of the track.
 
-The model includes RELU layers to introduce nonlinearity (code line 20), and the data is normalized in the model using a Keras lambda layer (code line 18). 
+1. Minimalistic model with Input -> 5x5 convolutional layer -> RELU activation -> Flattening -> 100 Dense Layer -> 1 Output 
+2. NVIDIA model, as described in the well known paper
+[End to End DL](https://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf)
+
+3. Architecture proposed by https://comma.ai/ company, building on similar concept to the NVIDIA model. 
+[Self Steering GH](https://github.com/commaai/research/blob/master/SelfSteering.md) related to the paper arxiv.org/abs/1608.01230
+
+
+After checking the articles recommended in the submission of the traffic light project, ELU activation proves to be a better choice than leaky RELU.
+
+1. The first minimalistic approach didn't tackle more complex curves appropriately.
+2. The second choice took a long time to train the first epoch on the small data sample.
+3. The third choice provided a model that trained through the first epoch in a reasonable time and readily provided a model that was able to drive itself (except stepping on a right lane line and then recovering on one of the more complex turns). 
+
+Given tangible results after the first quick training round, the third Comma.AI based model was chosen.
+
+The model consists of the convolutional layers with varying filter sizes, ELU activation layers, fully connected layers and the dropout layers with varying probability levels. The data is normalized in the model using a Keras lambda layer
+
+Model architecture illustrated in the flow chart:
+
+![alt text][image3]
+
+The model architecture with dimensions as the extract from model.summary() is provided below:
+
+![alt text][image2]
+
+The architecture assumes 4, 2 and 2 strides in the convolutional layers.
 
 #### 2. Attempts to reduce overfitting in the model
 
-The model contains dropout layers in order to reduce overfitting (model.py lines 21). 
+The model contains dropout layers in order to reduce overfitting. The dropout layers 
 
-The model was trained and validated on different data sets to ensure that the model was not overfitting (code line 10-16). The model was tested by running it through the simulator and ensuring that the vehicle could stay on the track.
+The model was trained on three independently collected datasets:
+- full forward pass through the track
+- full backward pass through the track
+- recovery of the trickier turn
+
+The model was tested by running it through the simulator and ensuring that the vehicle could stay on the track.
 
 #### 3. Model parameter tuning
 
-The model used an adam optimizer, so the learning rate was not tuned manually (model.py line 25).
+The model is optimized with Adam optimizer, therefore no manual intervention was required.
 
 #### 4. Appropriate training data
 
-Training data was chosen to keep the vehicle driving on the road. I used a combination of center lane driving, recovering from the left and right sides of the road ... 
+The model was trained on three independently collected datasets (collected on the local machine due to the performance of Workspace simulator):
+- full forward pass through the track
+- full backward pass through the track
+- recovery of the trickier turn
 
-For details about how I created the training data, see the next section. 
+All three camera views were used with the expertly corrected steering angle for the left and right camera.
+
+The initial forward run through the track proved to have largely biased steering angles to one side which would prevent the model for successfully generalizing. 
+
+My driving in the backward run was very nervous which is reflected by not-very-progressive steering. This nervousness was then passed on to the automatic driving in the final model. But it's interesting how it was inherited, so I left it there.
+
+The following histogram illustrates the problem for the forward run (blue) and backward run (red) through the track.
+
+![alt text][image7]
+
 
 ### Model Architecture and Training Strategy
 
 #### 1. Solution Design Approach
 
-The overall strategy for deriving a model architecture was to ...
+The first approach involved testing the minimalistic network of a single convolutional layer and a single fully connected layer on the smallest data sample possible (covering only key turns). I wanted to perform data collection + transformation + learning + simulation within 1 hour. Unfortunately the car was not able to properly clear the turns at the bifurcation of the offroad part.
 
-My first step was to use a convolution neural network model similar to the ... I thought this model might be appropriate because ...
+Therefore I searched for a proven model, the following being the candidates that are relatively up-to-date (year 2016).
+-NVIDIA model, as described in the well known paper
+[End to End DL](https://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf)
 
-In order to gauge how well the model was working, I split my image and steering angle data into a training and validation set. I found that my first model had a low mean squared error on the training set but a high mean squared error on the validation set. This implied that the model was overfitting. 
+- Architecture proposed by https://comma.ai/ company, building on similar concept to the NVIDIA model. 
+[Self Steering GH](https://github.com/commaai/research/blob/master/SelfSteering.md) related to the paper arxiv.org/abs/1608.01230
 
-To combat the overfitting, I modified the model so that ...
+The first model was resource hungry in terms of training, therefore I have selected the second one, given reasonable per epoch training time.
 
-Then I ... 
+After each epoch, the model was saved and I was able to test its performance in the Workspace (unfortunately I didn't manage to run Autonomous model on the offline local simulator).
 
-The final step was to run the simulator to see how well the car was driving around track one. There were a few spots where the vehicle fell off the track... to improve the driving behavior in these cases, I ....
+Model after the first epoch on the forward training data only was reasonably good. Except one curve where it partly stepped on the right lane and then quickly recovered. I wanted to amend that behaviour and recorded additional recovery of this turn.
 
-At the end of the process, the vehicle is able to drive autonomously around the track without leaving the road.
+After combining forward/backward/challenging curve data, the model cleared the track without the problem. However my driving was quite bad in the backward run and the model inherited nervous angle corrections while driving, which is illustrated below:
 
-#### 2. Final Model Architecture
+Model after the first epoch is preseted in the video format in this folder under 'temp_1epoch.mp4'
 
-The final model architecture (model.py lines 18-24) consisted of a convolution neural network with the following layers and layer sizes ...
+Model after the second epoch is preseted in the video format in this folder under 'temp_2epoch.mp4'
 
-Here is a visualization of the architecture (note: visualizing the architecture is optional according to the project rubric)
+Model after the third epoch is preseted in the video format in this folder under 'temp_3epoch.mp4'
+
+Model performance was captured at each epoch and can be illustrated below for the training and validation datasets:
 
 ![alt text][image1]
 
-#### 3. Creation of the Training Set & Training Process
 
-To capture good driving behavior, I first recorded two laps on track one using center lane driving. Here is an example image of center lane driving:
+#### 2. Final Model Architecture
+
+The model consists of the convolutional layers with varying filter sizes, ELU activation layers, fully connected layers and the dropout layers with varying probability levels. The data is normalized in the model using a Keras lambda layer
+
+Model architecture illustrated in the flow chart:
+
+![alt text][image3]
+
+The model architecture with dimensions as the extract from model.summary() is provided below:
 
 ![alt text][image2]
 
-I then recorded the vehicle recovering from the left side and right sides of the road back to center so that the vehicle would learn to .... These images show what a recovery looks like starting from ... :
 
-![alt text][image3]
-![alt text][image4]
-![alt text][image5]
+#### 3. Creation of the Training Set & Training Process
 
-Then I repeated this process on track two in order to get more data points.
+To properly cover the driving situations, I recorded:
+- full forward pass through the track
+- full backward pass through the track
+- recovery of the trickier turn
 
-To augment the data sat, I also flipped images and angles thinking that this would ... For example, here is an image that has then been flipped:
+All three camera views were used with the expertly corrected steering angle for the left and right camera.
+
+Every time the sample was generated, the data was schuffled so that the model doesn't learn the sequences. The training/validation split was performed in the 80%/20% proportion.
+
+The generator performs data augmentation by:
+- flipping the image and correcting the steering angle
+- adding left/right camera images with the adjusted steering angle
+
+The following picture illustrates the left / center / right camera image:
 
 ![alt text][image6]
-![alt text][image7]
 
-Etc ....
+The following picture illustrates the view after flippping the center image:
 
-After the collection process, I had X number of data points. I then preprocessed this data by ...
+![alt text][image5]
 
+The following picture illustrates the view after cropping the center image:
 
-I finally randomly shuffled the data set and put Y% of the data into a validation set. 
+![alt text][image4]
 
-I used this training data for training the model. The validation set helped determine if the model was over or under fitting. The ideal number of epochs was Z as evidenced by ... I used an adam optimizer so that manually training the learning rate wasn't necessary.
+The total number of frames entering the augmentation process and sampling is 2743.
+
