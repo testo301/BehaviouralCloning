@@ -20,8 +20,8 @@ The goals / steps of this project are the following:
 
 [image1]: ./images/lossplot.jpg "Train/Validation loss versus number of epochs"
 
-[image2]: ./images/model_architecture1.jpg "Model Architecture"
-[image3]: ./images/model_architecture2.jpg "Model Architecture"
+[image2]: ./images/model_architecture1.JPG "Model Architecture"
+[image3]: ./images/model_architecture2.JPG "Model Architecture"
 
 [image4]: ./images/cropped.jpg "Cropped Image"
 [image5]: ./images/flipped.jpg "Flipped Image"
